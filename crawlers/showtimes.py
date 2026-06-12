@@ -91,22 +91,35 @@ def get_cinemas():
     return CINEMA_IDS
 
 
+def _safe_dict_get(val, key, default=""):
+    """若 val 是 dict 才 .get()，否則回傳 default"""
+    if isinstance(val, dict):
+        return val.get(key, default)
+    return default
+
+
 def parse_event(event, cinema_name_map):
     """解析單一場次事件"""
-    # 多種可能的欄位名稱
-    cinema_id = str(event.get("cinemaId") or event.get("cinema_id") or
-                    event.get("cinema", {}).get("id", "") or "")
-    cinema_name = (event.get("cinemaName") or event.get("cinema_name") or
-                   event.get("cinema", {}).get("name", "") or
-                   cinema_name_map.get(cinema_id, f"秀泰影城{cinema_id}"))
+    cinema_field = event.get("cinema")
+    cinema_id = str(
+        event.get("cinemaId") or event.get("cinema_id") or
+        _safe_dict_get(cinema_field, "id") or ""
+    )
+    cinema_name = (
+        event.get("cinemaName") or event.get("cinema_name") or
+        _safe_dict_get(cinema_field, "name") or
+        (cinema_field if isinstance(cinema_field, str) else "") or
+        cinema_name_map.get(cinema_id, f"秀泰影城{cinema_id}")
+    )
 
+    film_field = event.get("film")
     movie = (event.get("filmName") or event.get("film_name") or
              event.get("movie") or event.get("title") or
-             event.get("film", {}).get("name", "") or "")
+             _safe_dict_get(film_field, "name") or "")
 
     poster = (event.get("filmPoster") or event.get("film_poster") or
               event.get("poster") or event.get("image") or
-              event.get("film", {}).get("poster_url", "") or "")
+              _safe_dict_get(film_field, "poster_url") or "")
     if poster and not poster.startswith("http"):
         poster = f"https://assets.showtimes.com.tw/images/{poster}"
 
