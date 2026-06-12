@@ -1,7 +1,8 @@
 import streamlit as st
 import streamlit.components.v1 as components
-import json, re, html
+import json, re, html, os
 from collections import defaultdict
+from datetime import datetime
 
 st.set_page_config(
     page_title="Movier｜全台電影場次查詢",
@@ -44,12 +45,27 @@ margin-bottom:36px;
 </p>
 """, unsafe_allow_html=True)
 
+freshness = get_data_freshness()
+if freshness:
+    st.markdown(f'<p style="font-size:14px;color:rgba(255,255,255,.75);margin-top:-20px;margin-bottom:10px;">{freshness}</p>', unsafe_allow_html=True)
+
 DEFAULT_POSTER = "https://images.unsplash.com/photo-1489599849927-2ee91cede3ba?w=900"
 
 @st.cache_data
 def load_rows():
     with open("movie_rows.json", "r", encoding="utf-8") as f:
         return json.load(f)
+
+def get_data_freshness():
+    try:
+        mtime = os.path.getmtime("movie_rows.json")
+        updated = datetime.fromtimestamp(mtime)
+        delta = datetime.now() - updated
+        if delta.days >= 2:
+            return f"⚠️ 資料上次更新：{updated.strftime('%Y/%m/%d')}（{delta.days} 天前，可能過期）"
+        return f"✅ 資料更新於：{updated.strftime('%Y/%m/%d %H:%M')}"
+    except Exception:
+        return ""
 
 def classify(cinema):
     if any(x in cinema for x in ["信義", "松仁", "大巨蛋"]):
