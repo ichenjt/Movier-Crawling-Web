@@ -11,6 +11,9 @@ on:
         required: false
         default: "14"
 
+permissions:
+  contents: write
+
 jobs:
   crawl:
     runs-on: ubuntu-latest
@@ -32,17 +35,23 @@ jobs:
       - name: Run crawlers
         run: |
           DAYS=${{ github.event.inputs.days || '14' }}
-          python update_movies.py --days $DAYS --output movie_rows.json
+          python update_movies.py --days $DAYS --output movie_rows_new.json
 
-      - name: Check if data changed
+      - name: Validate and replace data
         id: check_changes
         run: |
-          if git diff --quiet movie_rows.json; then
+          NEW=$(python -c "import json; d=json.load(open('movie_rows_new.json')); print(len(d))")
+          echo "rows=$NEW" >> $GITHUB_OUTPUT
+          if [ "$NEW" -lt "100" ]; then
             echo "changed=false" >> $GITHUB_OUTPUT
+            echo "::warning::爬蟲只取得 $NEW 筆，低於最低門檻(100)，跳過更新以保留舊資料"
           else
-            echo "changed=true" >> $GITHUB_OUTPUT
-            LINES=$(python -c "import json; d=json.load(open('movie_rows.json')); print(len(d))")
-            echo "rows=$LINES" >> $GITHUB_OUTPUT
+            cp movie_rows_new.json movie_rows.json
+            if git diff --quiet movie_rows.json; then
+              echo "changed=false" >> $GITHUB_OUTPUT
+            else
+              echo "changed=true" >> $GITHUB_OUTPUT
+            fi
           fi
 
       - name: Commit and push updated data
